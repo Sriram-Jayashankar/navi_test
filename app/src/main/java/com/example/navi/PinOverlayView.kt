@@ -8,13 +8,18 @@ import android.view.View
 class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private val paintGrid = Paint().apply {
-        color = Color.GRAY  // Grid color
-        strokeWidth = 1f    // Thin grid lines
+        color = Color.GRAY   // Grid color
+        strokeWidth = 1f     // Thin grid lines
         style = Paint.Style.STROKE
     }
 
     private val paintMarker = Paint().apply {
-        color = Color.RED   // Marker color
+        color = Color.RED    // Router marker color
+        style = Paint.Style.FILL
+    }
+
+    private val paintUser = Paint().apply {
+        color = Color.BLUE   // User marker color
         style = Paint.Style.FILL
     }
 
@@ -24,52 +29,74 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
         isAntiAlias = true
     }
 
-    // List of markers stored as Triple<x, y, rssi>
+    // List of router markers stored as Triple<x, y, rssi>
     private val markers = mutableListOf<Triple<Float, Float, Int>>()
     private var imageBounds: RectF? = null
 
-    // Logical map dimensions (must match Map.kt)
+    // Logical map dimensions must be /10 of real widht height
     private val logicalWidth = 25f
     private val logicalHeight = 39f
 
+    // User marker position (if set)
+    private var userMarker: Pair<Float, Float>? = null
+
     fun setImageBounds(bounds: RectF) {
         imageBounds = bounds
-        invalidate()  // Redraw view
+        invalidate()
     }
 
     fun addMarker(x: Float, y: Float, rssi: Int) {
         markers.add(Triple(x, y, rssi))
-        invalidate()  // Redraw view
+        invalidate()
     }
 
     fun clearMarkers() {
         markers.clear()
+        // Also clear the user marker so it gets updated.
+        userMarker = null
+        invalidate()
+    }
+
+    // Set the user marker (drawn in blue)
+    fun setUserMarker(x: Float, y: Float) {
+        userMarker = Pair(x, y)
+        invalidate()
+    }
+
+    // Clear only the user marker (if, for example, all three RSSI values are not available)
+    fun clearUserMarker() {
+        userMarker = null
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-
         imageBounds?.let { bounds ->
             val stepX = bounds.width() / logicalWidth
             val stepY = bounds.height() / logicalHeight
 
-            // Draw vertical grid lines (for 251 columns)
+            // Draw vertical grid lines.
             for (i in 0..logicalWidth.toInt()) {
                 val x = bounds.left + i * stepX
                 canvas.drawLine(x, bounds.top, x, bounds.bottom, paintGrid)
             }
 
-            // Draw horizontal grid lines (for 390 rows)
+            // Draw horizontal grid lines.
             for (i in 0..logicalHeight.toInt()) {
                 val y = bounds.top + i * stepY
                 canvas.drawLine(bounds.left, y, bounds.right, y, paintGrid)
             }
 
-            // Draw markers and show the RSSI value as text
+            // Draw router markers (red) with their RSSI text.
             for ((x, y, rssi) in markers) {
                 canvas.drawCircle(x, y, 15f, paintMarker)
                 canvas.drawText("$rssi dBm", x + 20f, y - 10f, paintText)
+            }
+
+            // Draw the user marker (blue) if set.
+            userMarker?.let { (ux, uy) ->
+                canvas.drawCircle(ux, uy, 15f, paintUser)
+                canvas.drawText("You", ux + 20f, uy - 10f, paintText)
             }
         }
     }
