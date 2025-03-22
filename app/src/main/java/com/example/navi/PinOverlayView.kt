@@ -33,7 +33,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
     private val markers = mutableListOf<Triple<Float, Float, Int>>()
     private var imageBounds: RectF? = null
 
-    // Logical map dimensions must be /10 of real widht height
+    // Logical map dimensions (must match Map.kt)
     private val logicalWidth = 25f
     private val logicalHeight = 39f
 
@@ -52,7 +52,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
 
     fun clearMarkers() {
         markers.clear()
-        // Also clear the user marker so it gets updated.
+        // Also clear the user marker.
         userMarker = null
         invalidate()
     }
@@ -63,7 +63,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
         invalidate()
     }
 
-    // Clear only the user marker (if, for example, all three RSSI values are not available)
+    // Clear only the user marker.
     fun clearUserMarker() {
         userMarker = null
         invalidate()
@@ -80,19 +80,16 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
                 val x = bounds.left + i * stepX
                 canvas.drawLine(x, bounds.top, x, bounds.bottom, paintGrid)
             }
-
             // Draw horizontal grid lines.
             for (i in 0..logicalHeight.toInt()) {
                 val y = bounds.top + i * stepY
                 canvas.drawLine(bounds.left, y, bounds.right, y, paintGrid)
             }
-
-            // Draw router markers (red) with their RSSI text.
+            // Draw router markers (red) with their RSSI values.
             for ((x, y, rssi) in markers) {
                 canvas.drawCircle(x, y, 15f, paintMarker)
                 canvas.drawText("$rssi dBm", x + 20f, y - 10f, paintText)
             }
-
             // Draw the user marker (blue) if set.
             userMarker?.let { (ux, uy) ->
                 canvas.drawCircle(ux, uy, 15f, paintUser)

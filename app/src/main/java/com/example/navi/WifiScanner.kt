@@ -18,7 +18,7 @@ class WifiScanner(
 
     private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val scanHandler = Handler(Looper.getMainLooper())
-    private val scanInterval = 100L  // Scan every 2 seconds
+    private val scanInterval = 1000L  // Scan every 2 seconds
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, intent: Intent?) {

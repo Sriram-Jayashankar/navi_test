@@ -8,7 +8,7 @@ import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import kotlin.math.pow
 
-// Activity class remains "Map"
+// The activity is named "Map" (we fully qualify kotlin.collections.Map where needed)
 class Map : AppCompatActivity() {
 
     private val logicalWidth = 251f
@@ -18,16 +18,17 @@ class Map : AppCompatActivity() {
     private lateinit var imageBounds: RectF
     private lateinit var wifiScanner: WifiScanner
 
-    // Define three routers for triangulation.
-    // Renamed variable to routerPositions to avoid conflict with kotlin.collections.Map.
+    // Define three routers with known logical positions.
     private val routerPositions: kotlin.collections.Map<String, Pair<Float, Float>> = mapOf(
         "sanath" to Pair(50f, 50f),
-        "Vishnu5G-google" to Pair(150f, 100f),
-        "Gadiya" to Pair(150f, 300f)
+        "Vishnu5G-google" to Pair(200f, 175f),
+        "Gadiya" to Pair(100f, 225f)
     )
 
-    // To store the latest RSSI values from each router.
+    // To store the latest raw RSSI values.
     private val lastResults = mutableMapOf<String, Int>()
+    // Maintain a Kalman filter for each router.
+    private val kalmanFilters = mutableMapOf<String, KalmanFilter1D>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,6 +37,13 @@ class Map : AppCompatActivity() {
         val imageView: ImageView = findViewById(R.id.imageView)
         mapOverlay = findViewById(R.id.mapOverlay)
         imageView.setImageResource(R.drawable.map_image)
+
+        // Initialize a Kalman filter for each router.
+        for (ssid in routerPositions.keys) {
+            // Example parameters: process noise q = 1, measurement noise r = 4,
+            // initial estimate = -80 dBm, and initial error = 10.
+            kalmanFilters[ssid] = KalmanFilter1D(q = 1f, r = 4f, initialEstimate = -80f, initialError = 10f)
+        }
 
         imageView.post {
             val drawable = imageView.drawable ?: return@post
@@ -67,45 +75,41 @@ class Map : AppCompatActivity() {
         val targetSSIDs = routerPositions.keys.toList()
         wifiScanner = WifiScanner(this, targetSSIDs) { resultsMap: kotlin.collections.Map<String, Int> ->
             runOnUiThread {
-                // Log the raw scan results.
-                Log.d("MapDebug", "Scan results: $resultsMap")
+                // Log raw scan results.
+                Log.d("MapDebug", "Raw scan results: $resultsMap")
 
-                // Update lastResults with any new values.
-                resultsMap.forEach { (ssid, rssi) ->
-                    lastResults[ssid] = rssi
+                // Update lastResults and Kalman filters.
+                resultsMap.forEach { (ssid, rawRssi) ->
+                    lastResults[ssid] = rawRssi
+                    kalmanFilters[ssid]?.update(rawRssi.toFloat())
+                    Log.d("MapDebug", "Kalman filtered RSSI for $ssid: ${kalmanFilters[ssid]?.xhat}")
                 }
-                Log.d("MapDebug", "Last RSSI values: $lastResults")
 
-                // Clear previous markers before updating.
+                // Clear previous markers.
                 mapOverlay.clearMarkers()
 
-                // Plot router markers (red) with their current RSSI.
+                // Plot router markers (red) using filtered RSSI.
                 for ((ssid, pos) in routerPositions) {
                     val (lx, ly) = pos
                     val screenX = imageBounds.left + (lx / logicalWidth) * imageBounds.width()
                     val screenY = imageBounds.top + (ly / logicalHeight) * imageBounds.height()
-                    val rssi = lastResults[ssid] ?: -999
-                    mapOverlay.addMarker(screenX, screenY, rssi)
-                    Log.d("MapDebug", "$ssid -> $rssi dBm at ($screenX, $screenY)")
+                    val filteredRssi = kalmanFilters[ssid]?.xhat ?: -999f
+                    mapOverlay.addMarker(screenX, screenY, filteredRssi.toInt())
+                    Log.d("MapDebug", "$ssid -> filtered RSSI: $filteredRssi dBm at ($screenX, $screenY)")
                 }
 
-                // Check if we have all three router readings.
+                // Perform trilateration only if readings for all routers are available.
                 if (lastResults.keys.containsAll(routerPositions.keys)) {
-                    val rssi1 = lastResults["sanath"]!!
-                    val rssi2 = lastResults["Vishnu5G-google"]!!
-                    val rssi3 = lastResults["Gadiya"]!!
-
-                    // Convert RSSI to estimated distances.
-                    val d1 = rssiToDistance(rssi1)
-                    val d2 = rssiToDistance(rssi2)
-                    val d3 = rssiToDistance(rssi3)
+                    val filtered1 = kalmanFilters["sanath"]!!.xhat
+                    val filtered2 = kalmanFilters["Vishnu5G-google"]!!.xhat
+                    val filtered3 = kalmanFilters["Gadiya"]!!.xhat
+                    val d1 = rssiToDistance(filtered1.toInt())
+                    val d2 = rssiToDistance(filtered2.toInt())
+                    val d3 = rssiToDistance(filtered3.toInt())
                     Log.d("MapDebug", "Distances: d1=$d1, d2=$d2, d3=$d3")
-
                     val p1 = routerPositions["sanath"]!!
                     val p2 = routerPositions["Vishnu5G-google"]!!
                     val p3 = routerPositions["Gadiya"]!!
-
-                    // Perform trilateration to get user logical position.
                     val userLogicalPos = trilaterate(p1, d1, p2, d2, p3, d3)
                     if (userLogicalPos != null) {
                         val (ux, uy) = userLogicalPos
@@ -127,13 +131,13 @@ class Map : AppCompatActivity() {
         wifiScanner.start()
     }
 
-    // Convert RSSI to estimated distance using a simple path-loss model.
-    private fun rssiToDistance(rssi: Int, txPower: Int = -40, n: Double = 2.0): Float {
-        // Formula: distance = 10 ^ ((txPower - RSSI) / (10 * n))
+    // Convert RSSI to estimated distance using a log-normal path-loss model.
+    private fun rssiToDistance(rssi: Int, txPower: Int = -47, n: Double = 2.5): Float {
+        // d = 10^((txPower - RSSI) / (10*n))
         return 10f.pow(((txPower - rssi) / (10 * n)).toFloat())
     }
 
-    // Perform trilateration to estimate user position from three routers.
+    // Basic trilateration function.
     private fun trilaterate(
         p1: Pair<Float, Float>, d1: Float,
         p2: Pair<Float, Float>, d2: Float,
@@ -161,10 +165,8 @@ class Map : AppCompatActivity() {
             Log.d("MapDebug", "Denominator zero in trilateration")
             return null
         }
-
         val x = (C * E - F * B) / denominator
         val y = (A * F - D * C) / denominator
-
         return Pair(x.toFloat(), y.toFloat())
     }
 
