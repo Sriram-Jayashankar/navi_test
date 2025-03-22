@@ -6,24 +6,31 @@ import android.util.Log
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 
+// Activity class remains "Map"
 class Map : AppCompatActivity() {
 
-    // Define your "logical" map dimensions
     private val logicalWidth = 251f
     private val logicalHeight = 390f
+
+    private lateinit var mapOverlay: PinOverlayView
+    private lateinit var imageBounds: RectF
+    private lateinit var wifiScanner: WifiScanner
+
+    // Rename the variable to avoid conflict with kotlin.collections.Map
+    private val routerPositions: kotlin.collections.Map<String, Pair<Float, Float>> = mapOf(
+        "sanath" to Pair(50f, 50f),
+        "Vishnu5G-google" to Pair(100f, 100f)
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map)
 
         val imageView: ImageView = findViewById(R.id.imageView)
-        val mapOverlay: PinOverlayView = findViewById(R.id.mapOverlay)
-
-        // Load your floor plan image (actual size = 2519x3901 in pixels)
+        mapOverlay = findViewById(R.id.mapOverlay)
         imageView.setImageResource(R.drawable.map_image)
 
         imageView.post {
-            // 1) Get the actual on-screen bounds (after scaling/fitting)
             val drawable = imageView.drawable ?: return@post
             val matrix = imageView.imageMatrix
             val values = FloatArray(9)
@@ -34,35 +41,45 @@ class Map : AppCompatActivity() {
             val transX = values[Matrix.MTRANS_X]
             val transY = values[Matrix.MTRANS_Y]
 
-            // The displayed rectangle of the image on the screen
             val intrinsicWidth = drawable.intrinsicWidth.toFloat()
             val intrinsicHeight = drawable.intrinsicHeight.toFloat()
-            val imageBounds = RectF(
+
+            imageBounds = RectF(
                 transX,
                 transY,
                 transX + intrinsicWidth * scaleX,
                 transY + intrinsicHeight * scaleY
             )
 
-            // Pass to overlay if needed
             mapOverlay.setImageBounds(imageBounds)
-
-            Log.d("MapDebug", "Image Bounds: $imageBounds")
-
-            // 2) Suppose the user wants to plot a point at the new "logical" coords:
-            //    (251, 390) => bottom-right in your 251×390 space
-            //    or (125.5, 195.5) => near the center
-            val logicalX = 100f
-            val logicalY = 390f
-
-            // 3) Convert from logical coords [0..251, 0..390] to on-screen coords
-            val mappedX = imageBounds.left + (logicalX / logicalWidth) * imageBounds.width()
-            val mappedY = imageBounds.top + (logicalY / logicalHeight) * imageBounds.height()
-
-            Log.d("MapDebug", "Logical ($logicalX, $logicalY) -> Screen ($mappedX, $mappedY)")
-
-            // 4) Plot a marker at that screen coordinate
-            mapOverlay.addMarker(mappedX, mappedY)
+            startWifiScanner()
         }
+    }
+
+    private fun startWifiScanner() {
+        val targetSSIDs = routerPositions.keys.toList()
+        wifiScanner = WifiScanner(this, targetSSIDs) { resultsMap: kotlin.collections.Map<String, Int> ->
+            runOnUiThread {
+                // Clear previous markers before updating.
+                mapOverlay.clearMarkers()
+                // Iterate through all known routers.
+                for ((ssid, pos) in routerPositions) {
+                    val (lx, ly) = pos
+                    // Convert logical coordinates to on-screen coordinates.
+                    val screenX = imageBounds.left + (lx / logicalWidth) * imageBounds.width()
+                    val screenY = imageBounds.top + (ly / logicalHeight) * imageBounds.height()
+                    // Use the scanned RSSI if available; default to -999 if not found.
+                    val rssi = resultsMap[ssid] ?: -999
+                    mapOverlay.addMarker(screenX, screenY, rssi)
+                    Log.d("MapDebug", "$ssid -> $rssi dBm at ($screenX, $screenY)")
+                }
+            }
+        }
+        wifiScanner.start()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        wifiScanner.stop()
     }
 }

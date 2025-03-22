@@ -18,7 +18,14 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
         style = Paint.Style.FILL
     }
 
-    private val markers = mutableListOf<Pair<Float, Float>>()
+    private val paintText = Paint().apply {
+        color = Color.BLACK
+        textSize = 28f
+        isAntiAlias = true
+    }
+
+    // List of markers stored as Triple<x, y, rssi>
+    private val markers = mutableListOf<Triple<Float, Float, Int>>()
     private var imageBounds: RectF? = null
 
     // Logical map dimensions (must match Map.kt)
@@ -27,12 +34,17 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
 
     fun setImageBounds(bounds: RectF) {
         imageBounds = bounds
-        invalidate()  // Redraw
+        invalidate()  // Redraw view
     }
 
-    fun addMarker(x: Float, y: Float) {
-        markers.add(Pair(x, y))
-        invalidate()  // Redraw
+    fun addMarker(x: Float, y: Float, rssi: Int) {
+        markers.add(Triple(x, y, rssi))
+        invalidate()  // Redraw view
+    }
+
+    fun clearMarkers() {
+        markers.clear()
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -54,9 +66,10 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
                 canvas.drawLine(bounds.left, y, bounds.right, y, paintGrid)
             }
 
-            // Draw markers
-            for ((x, y) in markers) {
+            // Draw markers and show the RSSI value as text
+            for ((x, y, rssi) in markers) {
                 canvas.drawCircle(x, y, 15f, paintMarker)
+                canvas.drawText("$rssi dBm", x + 20f, y - 10f, paintText)
             }
         }
     }
