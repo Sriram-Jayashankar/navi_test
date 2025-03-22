@@ -52,8 +52,8 @@ class Map : AppCompatActivity() {
             // 2) Suppose the user wants to plot a point at the new "logical" coords:
             //    (251, 390) => bottom-right in your 251×390 space
             //    or (125.5, 195.5) => near the center
-            val logicalX = 125.5f
-            val logicalY = 195.5f
+            val logicalX = 100f
+            val logicalY = 390f
 
             // 3) Convert from logical coords [0..251, 0..390] to on-screen coords
             val mappedX = imageBounds.left + (logicalX / logicalWidth) * imageBounds.width()
