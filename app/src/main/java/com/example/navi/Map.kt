@@ -21,8 +21,8 @@ class Map : AppCompatActivity() {
 
     // Define three routers with known logical positions.
     private val routerPositions: kotlin.collections.Map<String, Pair<Float, Float>> = mapOf(
-        "BMSCE" to Pair(200f, 300f),
-        "Xiaomi_0775_F88A" to Pair(125f, 335f),
+        "Xiaomi_0775_F88A" to Pair(175f, 275f),
+        "Keerthan_dlink" to Pair(125f, 335f),
         "MATHRUSHREE-2.4GHZ" to Pair(75f, 300f)
     )
 
@@ -101,16 +101,16 @@ class Map : AppCompatActivity() {
 
                 // Perform trilateration only if readings for all routers are available.
                 if (lastResults.keys.containsAll(routerPositions.keys)) {
-                    val filtered1 = kalmanFilters["BMSCE"]!!.xhat
-                    val filtered2 = kalmanFilters["Xiaomi_0775_F88A"]!!.xhat
+                    val filtered1 = kalmanFilters["Xiaomi_0775_F88A"]!!.xhat
+                    val filtered2 = kalmanFilters["Keerthan_dlink"]!!.xhat
                     val filtered3 = kalmanFilters["MATHRUSHREE-2.4GHZ"]!!.xhat
 
                     val d1 = rssiToDistance(filtered1.toInt())
                     val d2 = rssiToDistance(filtered2.toInt())
                     val d3 = rssiToDistance(filtered3.toInt())
                     Log.d("MapDebug", "Distances: d1=$d1, d2=$d2, d3=$d3")
-                    val p1 = routerPositions.getValue("BMSCE")
-                    val p2 = routerPositions.getValue("Xiaomi_0775_F88A")
+                    val p1 = routerPositions.getValue("Xiaomi_0775_F88A")
+                    val p2 = routerPositions.getValue("Keerthan_dlink")
                     val p3 = routerPositions.getValue("MATHRUSHREE-2.4GHZ")
 
                     //val userLogicalPos = trilaterate(p1, d1, p2, d2, p3, d3)
