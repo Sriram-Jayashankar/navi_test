@@ -6,7 +6,7 @@ data class Node(val id: Int, val x: Float, val y: Float)
 data class Edge(val fromId: Int, val toId: Int)
 
 object PathGraph {
-    private const val STEP = 25f
+    private const val STEP = 20f
     private var nextId = 0
 
     val nodes = mutableListOf<Node>()

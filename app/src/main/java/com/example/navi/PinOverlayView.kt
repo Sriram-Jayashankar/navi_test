@@ -108,7 +108,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
 
             // Draw path graph nodes (as light gray)
             val paintPathNode = Paint().apply {
-                color = Color.LTGRAY
+                color = Color.GREEN
                 style = Paint.Style.FILL
             }
 
