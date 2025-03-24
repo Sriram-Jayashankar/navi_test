@@ -41,6 +41,13 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
     // User marker position (if set)
     private var userMarker: Pair<Float, Float>? = null
 
+    private var debugMarker: Pair<Float, Float>? = null
+
+    fun setDebugMarker(logicalX: Float, logicalY: Float) {
+        debugMarker = Pair(logicalX, logicalY)
+        invalidate()
+    }
+
     fun setImageBounds(bounds: RectF) {
         imageBounds = bounds
         invalidate()
@@ -98,6 +105,30 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
                 canvas.drawCircle(ux, uy, 15f, paintUser)
                 canvas.drawText("You", ux + 20f, uy - 10f, paintText)
             }
+
+            // Draw path graph nodes (as light gray)
+            val paintPathNode = Paint().apply {
+                color = Color.LTGRAY
+                style = Paint.Style.FILL
+            }
+
+            for (node in PathGraph.nodes) {
+                val screenX = bounds.left + (node.x / logicalWidth) * bounds.width()
+                val screenY = bounds.top + (node.y / logicalHeight) * bounds.height()
+                canvas.drawCircle(screenX, screenY, 5f, paintPathNode)
+            }
+            debugMarker?.let { (lx, ly) ->
+                val paintDebug = Paint().apply {
+                    color = Color.MAGENTA // or use Color.rgb(128, 0, 128) for more purple
+                    style = Paint.Style.FILL
+                }
+
+                val screenX = bounds.left + (lx / logicalWidth) * bounds.width()
+                val screenY = bounds.top + (ly / logicalHeight) * bounds.height()
+                canvas.drawCircle(screenX, screenY, 12f, paintDebug)
+            }
+
+
         }
     }
 }

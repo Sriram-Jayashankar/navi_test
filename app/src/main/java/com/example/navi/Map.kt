@@ -70,6 +70,9 @@ class Map : AppCompatActivity() {
             mapOverlay.setImageBounds(imageBounds)
             startWifiScanner()
         }
+
+        mapOverlay.setDebugMarker(180f, 120f) // logical coordinates
+
     }
 
     private fun startWifiScanner() {
