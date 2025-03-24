@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
+import android.util.Log
 
 class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -28,14 +29,14 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
         textSize = 28f
         isAntiAlias = true
     }
-
     // List of router markers stored as Triple<x, y, rssi>
     private val markers = mutableListOf<Triple<Float, Float, Int>>()
     private var imageBounds: RectF? = null
 
     // Logical map dimensions (must match Map.kt)
-    private val logicalWidth = 25f
-    private val logicalHeight = 39f
+    private var logicalWidth = 251f
+    private var logicalHeight = 390f
+
 
     // User marker position (if set)
     private var userMarker: Pair<Float, Float>? = null
@@ -59,6 +60,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
 
     // Set the user marker (drawn in blue)
     fun setUserMarker(x: Float, y: Float) {
+        Log.d("UserMarker", "Setting user marker at screen=($x, $y)")
         userMarker = Pair(x, y)
         invalidate()
     }
@@ -92,6 +94,7 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
             }
             // Draw the user marker (blue) if set.
             userMarker?.let { (ux, uy) ->
+                Log.d("Drawing", "Drawing user at ($ux, $uy)")
                 canvas.drawCircle(ux, uy, 15f, paintUser)
                 canvas.drawText("You", ux + 20f, uy - 10f, paintText)
             }

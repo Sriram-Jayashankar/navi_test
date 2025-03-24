@@ -14,15 +14,16 @@ class Map : AppCompatActivity() {
     private val logicalWidth = 251f
     private val logicalHeight = 390f
 
+
     private lateinit var mapOverlay: PinOverlayView
     private lateinit var imageBounds: RectF
     private lateinit var wifiScanner: WifiScanner
 
     // Define three routers with known logical positions.
     private val routerPositions: kotlin.collections.Map<String, Pair<Float, Float>> = mapOf(
-        "sanath" to Pair(50f, 50f),
-        "Vishnu5G-google" to Pair(200f, 175f),
-        "Gadiya" to Pair(100f, 225f)
+        "BMSCE" to Pair(200f, 300f),
+        "Xiaomi_0775_F88A" to Pair(125f, 335f),
+        "MATHRUSHREE-2.4GHZ" to Pair(75f, 300f)
     )
 
     // To store the latest raw RSSI values.
@@ -42,7 +43,7 @@ class Map : AppCompatActivity() {
         for (ssid in routerPositions.keys) {
             // Example parameters: process noise q = 1, measurement noise r = 4,
             // initial estimate = -80 dBm, and initial error = 10.
-            kalmanFilters[ssid] = KalmanFilter1D(q = 1f, r = 4f, initialEstimate = -80f, initialError = 10f)
+            kalmanFilters[ssid] = KalmanFilter1D(q = 0.5f, r = 2f, initialEstimate = -60f, initialError = 5f)
         }
 
         imageView.post {
@@ -100,17 +101,28 @@ class Map : AppCompatActivity() {
 
                 // Perform trilateration only if readings for all routers are available.
                 if (lastResults.keys.containsAll(routerPositions.keys)) {
-                    val filtered1 = kalmanFilters["sanath"]!!.xhat
-                    val filtered2 = kalmanFilters["Vishnu5G-google"]!!.xhat
-                    val filtered3 = kalmanFilters["Gadiya"]!!.xhat
+                    val filtered1 = kalmanFilters["BMSCE"]!!.xhat
+                    val filtered2 = kalmanFilters["Xiaomi_0775_F88A"]!!.xhat
+                    val filtered3 = kalmanFilters["MATHRUSHREE-2.4GHZ"]!!.xhat
+
                     val d1 = rssiToDistance(filtered1.toInt())
                     val d2 = rssiToDistance(filtered2.toInt())
                     val d3 = rssiToDistance(filtered3.toInt())
                     Log.d("MapDebug", "Distances: d1=$d1, d2=$d2, d3=$d3")
-                    val p1 = routerPositions["sanath"]!!
-                    val p2 = routerPositions["Vishnu5G-google"]!!
-                    val p3 = routerPositions["Gadiya"]!!
-                    val userLogicalPos = trilaterate(p1, d1, p2, d2, p3, d3)
+                    val p1 = routerPositions.getValue("BMSCE")
+                    val p2 = routerPositions.getValue("Xiaomi_0775_F88A")
+                    val p3 = routerPositions.getValue("MATHRUSHREE-2.4GHZ")
+
+                    //val userLogicalPos = trilaterate(p1, d1, p2, d2, p3, d3)
+                    val userLogicalPos = trilaterateCentroidWeighted(listOf(
+                        Pair(p1, d1),
+                        Pair(p2, d2),
+                        Pair(p3, d3)
+                    ))
+
+
+
+
                     if (userLogicalPos != null) {
                         val (ux, uy) = userLogicalPos
                         Log.d("MapDebug", "User logical position: ($ux, $uy)")
@@ -169,6 +181,23 @@ class Map : AppCompatActivity() {
         val y = (A * F - D * C) / denominator
         return Pair(x.toFloat(), y.toFloat())
     }
+    private fun trilaterateCentroidWeighted(
+        routers: List<Pair<Pair<Float, Float>, Float>> // Pair<position, distance>
+    ): Pair<Float, Float> {
+        val weights = routers.map { 1f / it.second.coerceAtLeast(0.1f) } // Closer router = more weight
+        val totalWeight = weights.sum()
+
+        var x = 0f
+        var y = 0f
+        for (i in routers.indices) {
+            val (pos, _) = routers[i]
+            val w = weights[i]
+            x += pos.first * w
+            y += pos.second * w
+        }
+        return Pair(x / totalWeight, y / totalWeight)
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()
