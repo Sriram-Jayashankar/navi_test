@@ -6,16 +6,17 @@ data class Node(val id: Int, val x: Float, val y: Float)
 data class Edge(val fromId: Int, val toId: Int)
 
 object PathGraph {
-    private const val STEP = 20f
+    private const val STEP = 10f
     private var nextId = 0
 
     val nodes = mutableListOf<Node>()
     val edges = mutableListOf<Edge>()
 
     init {
-        generateSegment(0f, 0f, 300f, 0f)
-        generateSegment(300f, 0f, 300f, 200f)
-        generateSegment(50f, 200f, 300f, 200f)
+        generateSegment(10f, 60f, 230f, 60f)
+        generateSegment(10f, 330f, 230f, 330f)
+        generateSegment(80f, 60f, 80f, 330f)
+        generateSegment(170f, 60f, 170f, 330f)
 
         // Example of manual edge
         addEdgeByCoords(50f, 200f, 50f, 0f)
@@ -33,8 +34,10 @@ object PathGraph {
             val t = i.toFloat() / steps
             val x = x1 + t * dx
             val y = y1 + t * dy
-            val node = Node(nextId++, x, y)
-            nodes.add(node)
+
+            // Check if this coordinate already exists
+            val existing = nodes.find { it.x == x && it.y == y }
+            val node = existing ?: Node(nextId++, x, y).also { nodes.add(it) }
 
             if (prevNodeId != null) {
                 edges.add(Edge(prevNodeId, node.id))
@@ -42,6 +45,7 @@ object PathGraph {
             prevNodeId = node.id
         }
     }
+
 
     fun addEdgeByCoords(x1: Float, y1: Float, x2: Float, y2: Float) {
         val fromNode = nodes.minByOrNull { (it.x - x1).pow(2) + (it.y - y1).pow(2) }

@@ -8,11 +8,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitCenter"
-        android:src="@drawable/map_image"/>
+        android:src="@drawable/map_image" />
 
-    <!-- Custom Canvas Overlay -->
+    <!-- Custom Canvas Overlay for routers/user pins -->
     <com.example.navi.PinOverlayView
         android:id="@+id/mapOverlay"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
+
+    <!-- Coordinate Debugger Overlay for logging touch positions
+    <com.example.navi.CoordinateDebugger
+        android:id="@+id/debugOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/> -->
+
 </FrameLayout>

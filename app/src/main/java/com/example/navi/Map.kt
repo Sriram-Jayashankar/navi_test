@@ -68,6 +68,11 @@ class Map : AppCompatActivity() {
             )
 
             mapOverlay.setImageBounds(imageBounds)
+
+            //for clicking and getting grid coordinates for testing purposes
+            /*val debugOverlay: CoordinateDebugger = findViewById(R.id.debugOverlay)
+            debugOverlay.setImageBounds(imageBounds, logicalWidth, logicalHeight)*/
+
             startWifiScanner()
         }
 
