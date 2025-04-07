@@ -3,24 +3,24 @@ package com.example.navi
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
-import android.view.View
 import android.util.Log
+import android.view.View
 
 class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     private val paintGrid = Paint().apply {
-        color = Color.GRAY   // Grid color
-        strokeWidth = 1f     // Thin grid lines
+        color = Color.GRAY
+        strokeWidth = 1f
         style = Paint.Style.STROKE
     }
 
     private val paintMarker = Paint().apply {
-        color = Color.RED    // Router marker color
+        color = Color.RED
         style = Paint.Style.FILL
     }
 
     private val paintUser = Paint().apply {
-        color = Color.BLUE   // User marker color
+        color = Color.BLUE
         style = Paint.Style.FILL
     }
 
@@ -29,22 +29,39 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
         textSize = 28f
         isAntiAlias = true
     }
-    // List of router markers stored as Triple<x, y, rssi>
+
+    private val paintPathNode = Paint().apply {
+        color = Color.GREEN
+        style = Paint.Style.FILL
+    }
+
+    private val paintDebug = Paint().apply {
+        color = Color.MAGENTA
+        style = Paint.Style.FILL
+    }
+
+    private val paintPath = Paint().apply {
+        color = Color.BLUE
+        strokeWidth = 5f
+        style = Paint.Style.STROKE
+    }
+
     private val markers = mutableListOf<Triple<Float, Float, Int>>()
     private var imageBounds: RectF? = null
-
-    // Logical map dimensions (must match Map.kt)
     private var logicalWidth = 251f
     private var logicalHeight = 390f
 
-
-    // User marker position (if set)
     private var userMarker: Pair<Float, Float>? = null
-
     private var debugMarker: Pair<Float, Float>? = null
+    private var pathPoints: List<Pair<Float, Float>> = listOf()
 
     fun setDebugMarker(logicalX: Float, logicalY: Float) {
         debugMarker = Pair(logicalX, logicalY)
+        invalidate()
+    }
+
+    fun setPath(points: List<Pair<Float, Float>>) {
+        pathPoints = points
         invalidate()
     }
 
@@ -60,22 +77,26 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
 
     fun clearMarkers() {
         markers.clear()
-        // Also clear the user marker.
         userMarker = null
         invalidate()
     }
 
-    // Set the user marker (drawn in blue)
     fun setUserMarker(x: Float, y: Float) {
         Log.d("UserMarker", "Setting user marker at screen=($x, $y)")
         userMarker = Pair(x, y)
         invalidate()
     }
 
-    // Clear only the user marker.
     fun clearUserMarker() {
         userMarker = null
         invalidate()
+    }
+
+    private fun logicalToScreen(pos: Pair<Float, Float>): Pair<Float, Float> {
+        val bounds = imageBounds ?: return pos
+        val screenX = bounds.left + (pos.first / logicalWidth) * bounds.width()
+        val screenY = bounds.top + (pos.second / logicalHeight) * bounds.height()
+        return Pair(screenX, screenY)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -84,51 +105,49 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
             val stepX = bounds.width() / logicalWidth
             val stepY = bounds.height() / logicalHeight
 
-            // Draw vertical grid lines.
+            /*// Draw grid
             for (i in 0..logicalWidth.toInt()) {
                 val x = bounds.left + i * stepX
                 canvas.drawLine(x, bounds.top, x, bounds.bottom, paintGrid)
             }
-            // Draw horizontal grid lines.
             for (i in 0..logicalHeight.toInt()) {
                 val y = bounds.top + i * stepY
                 canvas.drawLine(bounds.left, y, bounds.right, y, paintGrid)
-            }
-            // Draw router markers (red) with their RSSI values.
+            }*/
+
+            // Draw router markers
             for ((x, y, rssi) in markers) {
                 canvas.drawCircle(x, y, 15f, paintMarker)
                 canvas.drawText("$rssi dBm", x + 20f, y - 10f, paintText)
             }
-            // Draw the user marker (blue) if set.
+
+            // Draw user marker
             userMarker?.let { (ux, uy) ->
-                Log.d("Drawing", "Drawing user at ($ux, $uy)")
                 canvas.drawCircle(ux, uy, 15f, paintUser)
                 canvas.drawText("You", ux + 20f, uy - 10f, paintText)
+                Log.d("snap1", "User logical position: ($ux, $uy)")
             }
 
-            // Draw path graph nodes (as light gray)
-            val paintPathNode = Paint().apply {
-                color = Color.GREEN
-                style = Paint.Style.FILL
-            }
-
+            /*// Draw path graph nodes
             for (node in PathGraph.nodes) {
-                val screenX = bounds.left + (node.x / logicalWidth) * bounds.width()
-                val screenY = bounds.top + (node.y / logicalHeight) * bounds.height()
-                canvas.drawCircle(screenX, screenY, 5f, paintPathNode)
-            }
-            debugMarker?.let { (lx, ly) ->
-                val paintDebug = Paint().apply {
-                    color = Color.MAGENTA // or use Color.rgb(128, 0, 128) for more purple
-                    style = Paint.Style.FILL
+                val (sx, sy) = logicalToScreen(Pair(node.x, node.y))
+                canvas.drawCircle(sx, sy, 5f, paintPathNode)
+            }*/
+
+//            // Draw debug marker
+//            debugMarker?.let { (lx, ly) ->
+//                val (sx, sy) = logicalToScreen(Pair(lx, ly))
+//                canvas.drawCircle(sx, sy, 12f, paintDebug)
+//            }
+
+            // Draw path
+            if (pathPoints.size >= 2) {
+                for (i in 0 until pathPoints.size - 1) {
+                    val (x1, y1) = logicalToScreen(pathPoints[i])
+                    val (x2, y2) = logicalToScreen(pathPoints[i + 1])
+                    canvas.drawLine(x1, y1, x2, y2, paintPath)
                 }
-
-                val screenX = bounds.left + (lx / logicalWidth) * bounds.width()
-                val screenY = bounds.top + (ly / logicalHeight) * bounds.height()
-                canvas.drawCircle(screenX, screenY, 12f, paintDebug)
             }
-
-
         }
     }
 }

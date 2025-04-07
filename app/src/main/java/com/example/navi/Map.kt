@@ -13,6 +13,7 @@ class Map : AppCompatActivity() {
 
     private val logicalWidth = 251f
     private val logicalHeight = 390f
+    private var lastUserLogical = Pair(0f, 0f)
 
 
     private lateinit var mapOverlay: PinOverlayView
@@ -70,13 +71,13 @@ class Map : AppCompatActivity() {
             mapOverlay.setImageBounds(imageBounds)
 
             //for clicking and getting grid coordinates for testing purposes
-            /*val debugOverlay: CoordinateDebugger = findViewById(R.id.debugOverlay)
-            debugOverlay.setImageBounds(imageBounds, logicalWidth, logicalHeight)*/
+            val debugOverlay: CoordinateDebugger = findViewById(R.id.debugOverlay)
+            debugOverlay.setImageBounds(imageBounds, logicalWidth, logicalHeight)
 
             startWifiScanner()
         }
 
-        mapOverlay.setDebugMarker(180f, 120f) // logical coordinates
+        //mapOverlay.setDebugMarker(180f, 120f) // logical coordinates
 
     }
 
@@ -85,13 +86,12 @@ class Map : AppCompatActivity() {
         wifiScanner = WifiScanner(this, targetSSIDs) { resultsMap: kotlin.collections.Map<String, Int> ->
             runOnUiThread {
                 // Log raw scan results.
-                Log.d("MapDebug", "Raw scan results: $resultsMap")
+                Log.d("ScanResults", "Raw scan results: $resultsMap")
 
                 // Update lastResults and Kalman filters.
                 resultsMap.forEach { (ssid, rawRssi) ->
                     lastResults[ssid] = rawRssi
                     kalmanFilters[ssid]?.update(rawRssi.toFloat())
-                    Log.d("MapDebug", "Kalman filtered RSSI for $ssid: ${kalmanFilters[ssid]?.xhat}")
                 }
 
                 // Clear previous markers.
@@ -104,7 +104,7 @@ class Map : AppCompatActivity() {
                     val screenY = imageBounds.top + (ly / logicalHeight) * imageBounds.height()
                     val filteredRssi = kalmanFilters[ssid]?.xhat ?: -999f
                     mapOverlay.addMarker(screenX, screenY, filteredRssi.toInt())
-                    Log.d("MapDebug", "$ssid -> filtered RSSI: $filteredRssi dBm at ($screenX, $screenY)")
+                    Log.d("Kalmanfiltered", "$ssid -> filtered RSSI: $filteredRssi dBm at ($screenX, $screenY)")
                 }
 
                 // Perform trilateration only if readings for all routers are available.
@@ -122,29 +122,66 @@ class Map : AppCompatActivity() {
                     val p3 = routerPositions.getValue("MATHRUSHREE-2.4GHZ")
 
                     //val userLogicalPos = trilaterate(p1, d1, p2, d2, p3, d3)
-                    val userLogicalPos = trilaterateCentroidWeighted(listOf(
+                    val unsnappedPos = trilaterateCentroidWeighted(listOf(
                         Pair(p1, d1),
                         Pair(p2, d2),
                         Pair(p3, d3)
                     ))
+                    val userLogicalPos = PathGraph.snapToNearest(unsnappedPos.first, unsnappedPos.second)
+                    /*to snap use this
+                        val unsnappedPos = trilaterateCentroidWeighted(...)
+                        val userLogicalPos = PathGraph.snapToNearest(unsnappedPos.first, unsnappedPos.second)*/
 
 
 
 
                     if (userLogicalPos != null) {
                         val (ux, uy) = userLogicalPos
-                        Log.d("MapDebug", "User logical position: ($ux, $uy)")
+                        lastUserLogical = Pair(ux, uy)
                         val screenUX = imageBounds.left + (ux / logicalWidth) * imageBounds.width()
                         val screenUY = imageBounds.top + (uy / logicalHeight) * imageBounds.height()
                         mapOverlay.setUserMarker(screenUX, screenUY)
-                        Log.d("MapDebug", "User mapped to screen: ($screenUX, $screenUY)")
+
+                        //a star logic
+                        val dest = DestinationManager.getDestination()
+                        if (dest != null) {
+                            val (dx, dy) = dest
+                            val startNode = PathGraph.nodes.minByOrNull { (it.x - ux).pow(2) + (it.y - uy).pow(2) }
+                            val endNode = PathGraph.nodes.minByOrNull { (it.x - dx).pow(2) + (it.y - dy).pow(2) }
+
+                            if (startNode != null && endNode != null) {
+                                val path = PathFinder.aStar(startNode, endNode, PathGraph.nodes, PathGraph.edges)
+                                mapOverlay.setPath(path.map { Pair(it.x, it.y) })
+                            }
+                        }
+
+                        Log.d("snap1", "User mapped to screen: ($screenUX, $screenUY)")
                     } else {
-                        Log.d("MapDebug", "Trilateration returned null")
                         mapOverlay.clearUserMarker()
                     }
                 } else {
                     Log.d("MapDebug", "Not all router readings available")
                     mapOverlay.clearUserMarker()
+                    /*val (ux, uy) = PathGraph.snapToNearest(125f, 335f)
+                    lastUserLogical = Pair(ux, uy)
+                    Log.d("MapDebug", "User logical position: ($ux, $uy)")
+                    val screenUX = imageBounds.left + (ux / logicalWidth) * imageBounds.width()
+                    val screenUY = imageBounds.top + (uy / logicalHeight) * imageBounds.height()
+                    mapOverlay.setUserMarker(screenUX, screenUY)
+
+                    //a star logic
+                    val dest = DestinationManager.getDestination()
+                    Log.d("BluePath", "runnig a* logic in nap.kt")
+                    if (dest != null) {
+                        val (dx, dy) = dest
+                        val startNode = PathGraph.nodes.minByOrNull { (it.x - ux).pow(2) + (it.y - uy).pow(2) }
+                        val endNode = PathGraph.nodes.minByOrNull { (it.x - dx).pow(2) + (it.y - dy).pow(2) }
+
+                        if (startNode != null && endNode != null) {
+                            val path = PathFinder.aStar(startNode, endNode, PathGraph.nodes, PathGraph.edges)
+                            mapOverlay.setPath(path.map { Pair(it.x, it.y) })
+                        }
+                    }*/
                 }
             }
         }
@@ -182,7 +219,6 @@ class Map : AppCompatActivity() {
 
         val denominator = A * E - B * D
         if (denominator == 0.0) {
-            Log.d("MapDebug", "Denominator zero in trilateration")
             return null
         }
         val x = (C * E - F * B) / denominator
@@ -205,6 +241,23 @@ class Map : AppCompatActivity() {
         }
         return Pair(x / totalWeight, y / totalWeight)
     }
+    fun triggerPathRecompute() {
+        val dest = DestinationManager.getDestination()
+        if (dest != null) {
+            val (dx, dy) = dest
+            val ux = lastUserLogical.first
+            val uy = lastUserLogical.second
+
+            val startNode = PathGraph.nodes.minByOrNull { (it.x - ux).pow(2) + (it.y - uy).pow(2) }
+            val endNode = PathGraph.nodes.minByOrNull { (it.x - dx).pow(2) + (it.y - dy).pow(2) }
+
+            if (startNode != null && endNode != null) {
+                val path = PathFinder.aStar(startNode, endNode, PathGraph.nodes, PathGraph.edges)
+                mapOverlay.setPath(path.map { Pair(it.x, it.y) })
+            }
+        }
+    }
+
 
 
     override fun onDestroy() {

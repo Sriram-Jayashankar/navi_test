@@ -19,7 +19,7 @@ object PathGraph {
         generateSegment(170f, 60f, 170f, 330f)
 
         // Example of manual edge
-        addEdgeByCoords(50f, 200f, 50f, 0f)
+        //addEdgeByCoords(50f, 200f, 50f, 0f)
     }
 
     fun generateSegment(x1: Float, y1: Float, x2: Float, y2: Float) {
@@ -41,6 +41,7 @@ object PathGraph {
 
             if (prevNodeId != null) {
                 edges.add(Edge(prevNodeId, node.id))
+                edges.add(Edge(node.id, prevNodeId))
             }
             prevNodeId = node.id
         }
@@ -53,12 +54,22 @@ object PathGraph {
 
         if (fromNode != null && toNode != null) {
             edges.add(Edge(fromNode.id, toNode.id))
+
         }
     }
 
     fun snapToNearest(x: Float, y: Float): Pair<Float, Float> {
-        return nodes.minByOrNull { (nx, ny) ->
-            (nx - x).pow(2) + (ny - y).pow(2)
+        return nodes.minByOrNull { node ->
+            (node.x - x).pow(2) + (node.y - y).pow(2)
         }?.let { Pair(it.x, it.y) } ?: Pair(x, y)
     }
+//    fun snapToNearest(x: Float, y: Float, threshold: Float = 20f): Pair<Float, Float> {
+//    val nearest = nodes.minByOrNull { node ->
+//        (node.x - x).pow(2) + (node.y - y).pow(2)
+//    }
+//    val dist = nearest?.let { sqrt((it.x - x).pow(2) + (it.y - y).pow(2)) } ?: Float.MAX_VALUE
+//    return if (dist <= threshold) Pair(nearest!!.x, nearest.y) else Pair(x, y)
+//}
+
+
 }
