@@ -19,6 +19,8 @@ class Map : AppCompatActivity() {
     private lateinit var mapOverlay: PinOverlayView
     private lateinit var imageBounds: RectF
     private lateinit var wifiScanner: WifiScanner
+    private lateinit var userPositionFilter: KalmanFilter2D
+
 
     // Define three routers with known logical positions.
     private val routerPositions: kotlin.collections.Map<String, Pair<Float, Float>> = mapOf(
@@ -76,6 +78,8 @@ class Map : AppCompatActivity() {
 
             startWifiScanner()
         }
+        userPositionFilter = KalmanFilter2D(q = 0.1f, r = 6f, initialEstimateX = 80f, initialEstimateY = 60f)
+
 
         //mapOverlay.setDebugMarker(180f, 120f) // logical coordinates
 
@@ -136,10 +140,20 @@ class Map : AppCompatActivity() {
 
 
                     if (userLogicalPos != null) {
-                        val (ux, uy) = userLogicalPos
+                        val (uxRaw, uyRaw) = userLogicalPos
+                        val (ux, uy) = userPositionFilter.update(uxRaw, uyRaw)
+
+                        Log.d("snap1", "User logical position from map: ($ux, $uy)")
                         lastUserLogical = Pair(ux, uy)
+
                         val screenUX = imageBounds.left + (ux / logicalWidth) * imageBounds.width()
                         val screenUY = imageBounds.top + (uy / logicalHeight) * imageBounds.height()
+
+                        // In Map.kt before updating marker
+//                        if ((ux - lastUserLogical.first).pow(2) + (uy - lastUserLogical.second).pow(2) > 5f.pow(2)) {
+//                            lastUserLogical = Pair(ux, uy)
+//                            mapOverlay.setUserMarker(screenUX, screenUY)
+//                        }
                         mapOverlay.setUserMarker(screenUX, screenUY)
 
                         //a star logic
@@ -155,7 +169,6 @@ class Map : AppCompatActivity() {
                             }
                         }
 
-                        Log.d("snap1", "User mapped to screen: ($screenUX, $screenUY)")
                     } else {
                         mapOverlay.clearUserMarker()
                     }

@@ -125,7 +125,6 @@ class PinOverlayView(context: Context, attrs: AttributeSet?) : View(context, att
             userMarker?.let { (ux, uy) ->
                 canvas.drawCircle(ux, uy, 15f, paintUser)
                 canvas.drawText("You", ux + 20f, uy - 10f, paintText)
-                Log.d("snap1", "User logical position: ($ux, $uy)")
             }
 
             /*// Draw path graph nodes
